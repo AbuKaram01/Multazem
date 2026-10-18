@@ -1,0 +1,99 @@
+# SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
+# SPDX-License-Identifier: MIT
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "multazem"
+version = "0.1.0"
+description = "GNOME prayer time reminders via desktop notifications - works fully offline, in English and Arabic"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "AbuKaram01", email = "abukaram01@proton.me" }]
+
+dependencies = [
+    "adhanpy>=1.0.5,<2.0.0",
+    # On Windows PyGObject comes as a prebuilt wheel with the GTK runtime (scripts/install-windows.ps1); pip must not
+    # try to build it. Windows also has no time zone database of its own, which zoneinfo needs.
+    "PyGObject>=3.42; sys_platform != 'win32'",
+    "tzdata; sys_platform == 'win32'",
+]
+
+
+[project.scripts]
+multazem = "multazem.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+multazem = ["icons/**/*.svg"]
+
+
+[project.optional-dependencies]
+test = ["pytest>=7", "pyyaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = ["gui: needs xvfb-run and GTK4/libadwaita (relatively slow)"]
+
+[tool.ruff]
+line-length = 120
+extend-exclude = ["packaging/vendor"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "D",        # pydocstyle (Google convention)
+    "I",        # isort
+    "N",        # pep8-naming
+    "UP",       # pyupgrade
+    "B",        # bugbear
+    "BLE",      # no blind excepts without a reason
+    "SIM",      # simplifications
+    "C4",       # comprehensions
+    "C90",      # complexity
+    "PIE", "PERF", "RET", "RSE", "FURB",
+    "PTH",      # pathlib instead of os.path / open()
+    "T20",      # no print() — use the logging module
+    "LOG", "G", # logging usage
+    "ARG",      # unused arguments
+    "PLR", "PLW",
+    "RUF",
+]
+ignore = [
+    # Arabic text, Arabic-Indic digits and typographic dashes in strings and comments are intentional.
+    "RUF001", "RUF002", "RUF003",
+    # Constructor arguments are documented in the class docstring and dunder methods are
+    # self-explanatory, as the Google style guide allows.
+    "D105", "D107",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+# calculate_prayer_times() takes the six independent inputs of the calculation.
+max-args = 6
+max-positional-args = 6
+
+[tool.ruff.lint.per-file-ignores]
+"tests/test_*.py" = [
+    "D102", "D103",                 # a test is named for what it checks; its fakes are documented per class
+]
+"tests/**" = [
+    "ARG001", "ARG002", "ARG005",   # test doubles must match the signature of what they replace
+    "PLR2004",                      # expected values in assertions are the point of a test
+    "PLR0913", "PLR0917",           # fixture factories take many options
+]
+
+[tool.ruff.lint.isort]
+known-local-folder = ["scheduler_support", "gui_support", "windows_support", "packaging_support"]

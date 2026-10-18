@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
+# SPDX-License-Identifier: MIT
+
+[Desktop Entry]
+Type=Application
+Name=Multazem
+Comment=Prayer time reminders via desktop notifications - fully offline
+Comment[ar]=تذكير بمواقيت الصلاة عبر إشعارات سطح المكتب - يعمل محليًا بدون إنترنت
+Exec=multazem-exec-placeholder
+Icon=com.github.multazem
+Terminal=false
+Categories=Utility;
+Keywords=prayer;salah;azan;adhan;
+Keywords[ar]=صلاة;أذان;مواقيت;
+StartupNotify=true

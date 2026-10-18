@@ -1,0 +1,17 @@
+Package: @PKG_NAME@
+Version: @VERSION@
+Section: utils
+Priority: optional
+Architecture: all
+Depends: python3 (>= 3.11), python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1 (>= 1.5), libnotify-bin, tzdata
+Recommends: hicolor-icon-theme
+Replaces: @LEGACY_PKG_NAME@
+Conflicts: @LEGACY_PKG_NAME@
+Maintainer: @MAINTAINER@
+Description: Prayer time reminders via desktop notifications
+ A GTK4 + libadwaita desktop app that calculates the five daily prayer
+ times locally and sends a desktop notification at each one, with an
+ optional reminder beforehand. Supports several calculation methods and a
+ built-in list of Egyptian cities, and can run in the background through
+ a systemd user service. Fully offline — no dependencies are downloaded or
+ compiled at install time.

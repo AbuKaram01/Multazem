@@ -1,0 +1,409 @@
+# SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
+# SPDX-License-Identifier: MIT
+
+# Continuous integration.
+#
+#   Every push and pull request:  linux, windows-core, windows-gtk, installer
+#   Manual only (Actions > CI > Run workflow):  windows-installer-run, windows-full-install
+
+name: CI
+
+on:
+  push:
+  pull_request:
+  # The manual run starts only the two jobs marked "Manual only" below.
+  workflow_dispatch:
+
+jobs:
+  # The whole test suite on Linux, GUI tests included (GTK runs under a virtual display), after the linters.
+  linux:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: System packages
+        run: >-
+          sudo apt-get update &&
+          sudo apt-get install -y python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 xvfb adwaita-icon-theme libnotify-bin
+      - name: Python environment
+        run: |
+          python3 -m venv --system-site-packages .venv
+          .venv/bin/pip install adhanpy pytest pyyaml ruff
+          .venv/bin/pip install --no-deps -e .
+      - run: .venv/bin/ruff check .
+      - run: .venv/bin/ruff format --check .
+      - run: shellcheck scripts/*.sh packaging/*.sh
+      - run: GSK_RENDERER=cairo xvfb-run -a .venv/bin/pytest -q
+
+  # The prayer-time engine, storage, paths and the Windows support code, without GTK: catches path, encoding and
+  # file-locking mistakes on a real Windows file system. The GUI tests skip themselves here. The PowerShell scripts
+  # are parsed by Windows PowerShell 5.1 as well, because that is the one the installer runs them with.
+  windows-core:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install adhanpy tzdata pytest pyyaml ruff
+      - run: pip install --no-deps -e .
+      - run: ruff check .
+      - run: ruff format --check .
+      - name: The PowerShell scripts parse in Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $failed = $false
+          foreach ($file in Get-ChildItem -Recurse -Include *.ps1 scripts, packaging) {
+              $errors = $null
+              [void][System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$errors)
+              if ($errors) {
+                  $failed = $true
+                  foreach ($problem in $errors) { "$($file.Name):$($problem.Extent.StartLineNumber): $($problem.Message)" }
+              } else {
+                  "OK  $($file.Name)"
+              }
+          }
+          if ($failed) { throw 'A PowerShell script does not parse.' }
+      - run: pytest -q
+
+  # The real thing: installs the GTK runtime with scripts/install-windows.ps1 and runs the whole suite, GUI tests
+  # included, against GTK 4 and libadwaita on Windows. The Python version has to be the one the gvsbuild PyGObject
+  # wheel was built for. The install script takes the release named in scripts/gtk-portable.ps1 (2026.8.0: wheels for
+  # 3.14), not the newest one: gvsbuild 2026.10.0 builds its wheels for Python 3.15. When you move to a newer release,
+  # change that tag and this Python version together; if this job fails with "are for Python x.y", that is the
+  # mismatch.
+  #
+  # MULTAZEM_REAL_WINDOWS_TESTS lets the tests that touch the real registry and start a real background process run
+  # (tests/test_windows_real.py). They are off everywhere else, so running the suite on your own Windows machine never
+  # changes your sign-in entries.
+  windows-gtk:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install GTK and the Python environment
+        shell: pwsh
+        run: ./scripts/install-windows.ps1 -WithTests -NoShortcut -PythonVersion ${{ matrix.python }}
+      - name: Test
+        shell: pwsh
+        env:
+          MULTAZEM_REAL_WINDOWS_TESTS: "1"
+        run: .venv\Scripts\python.exe -m pytest -q
+
+  # Builds the Windows installer and checks what went into it: the GTK runtime (pruned of the build tools of the
+  # gvsbuild release), the Python installer and the Python libraries (the wheelhouse). The installer is kept as a
+  # build artifact. It waits for the cheaper windows-core job, so a broken Windows code base does not cost a build.
+  installer:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: windows-latest
+    needs: windows-core
+    steps:
+      - uses: actions/checkout@v4
+      # The Python libraries inside the installer are collected with the Python of the GTK runtime.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+      - name: Build the installer (GTK, the Python installer and the Python libraries go inside)
+        shell: pwsh
+        env:
+          # Lifts the API rate limit for the digest lookup of the GTK zip.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./packaging/build-windows.ps1 -RequirePython
+      - name: The installer carries the GTK runtime, without what only builds need
+        shell: pwsh
+        run: |
+          . ./scripts/gtk-portable.ps1
+          if (-not (Test-GtkRuntime 'packaging\gtk')) { throw 'The GTK runtime was not prepared.' }
+          Get-Content packaging\gtk\gvsbuild-release.txt
+          if (-not (Get-ChildItem packaging\gtk\wheels -Filter 'pygobject*.whl')) {
+              throw 'The runtime has no PyGObject wheel.'
+          }
+          foreach ($left in 'include', 'bin\protoc.exe', 'bin\pkgconf.exe') {
+              if (Test-Path (Join-Path 'packaging\gtk' $left)) { throw "$left is still in the GTK runtime." }
+          }
+          if (@(Get-ChildItem packaging\gtk -Recurse -Filter '*.pdb').Count -gt 0) {
+              throw 'The GTK runtime still carries debug symbols.'
+          }
+          $size = (Get-ChildItem packaging\gtk -Recurse -File | Measure-Object Length -Sum).Sum
+          "GTK runtime: {0:N0} MB unpacked" -f ($size / 1MB)
+          if ($size -gt 400MB) { throw 'The GTK runtime is far larger than expected; the pruning did not work.' }
+          $setup = Get-ChildItem packaging\dist\*.exe | Select-Object -First 1
+          "{0}: {1:N1} MB" -f $setup.Name, ($setup.Length / 1MB)
+          if ($setup.Length -lt $size / 8) { throw 'The installer is too small to contain the GTK runtime.' }
+      - name: The installer carries the Python installer and the Python libraries
+        shell: pwsh
+        run: |
+          . ./scripts/python-bundle.ps1
+          $minor = Get-GtkPythonMinor 'packaging\gtk'
+          "Python of the GTK runtime: $minor"
+          $pythonSetup = Find-PythonInstaller 'packaging\python' $minor
+          if (-not $pythonSetup) { throw "The Python $minor installer was not prepared (packaging\python)." }
+          "{0}: {1:N1} MB" -f (Split-Path $pythonSetup -Leaf), ((Get-Item $pythonSetup).Length / 1MB)
+          if (-not (Test-Wheelhouse 'packaging\wheelhouse' $minor)) {
+              throw 'The Python libraries were not prepared (packaging\wheelhouse).'
+          }
+          $wheels = @(Get-ChildItem packaging\wheelhouse -Filter '*.whl')
+          $size = ($wheels | Measure-Object Length -Sum).Sum
+          "{0} wheels, {1:N1} MB" -f $wheels.Count, ($size / 1MB)
+          $wheels | ForEach-Object { "  " + $_.Name }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: multazem-windows-setup
+          path: packaging/dist/*.exe
+
+  # Manual only. Builds the installer and runs it the way a user would (silently), then checks that GTK came from
+  # inside the installer (nothing is downloaded into %LOCALAPPDATA%\multazem\gtk), that GTK loads, the application
+  # stays up and the reminders turn on and off; that running the installer again over the first installation (an
+  # upgrade) keeps the user's data and starts the reminders again when they were on; which DLLs the installed program
+  # needs from the machine; and that the uninstaller leaves nothing running or signed in.
+  windows-installer-run:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+      - name: Build the installer
+        shell: pwsh
+        run: ./packaging/build-windows.ps1 -RequirePython
+      - name: Run the installer (silently, as a user would, on a machine whose Python is not there for it to use)
+        shell: pwsh
+        timeout-minutes: 35
+        run: |
+          # The runner's Python (setup-python, above) was only needed to build the installer. Taking it off the PATH
+          # and out of the registry (where the py launcher looks) leaves the Python installer inside setup.exe as the
+          # only way to get Python 3.14, which is what a user without Python has.
+          $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -and $_ -notlike '*hostedtoolcache*Python*' }) -join ';'
+          $registryKeys = 'HKLM:\SOFTWARE\Python\PythonCore\3.14',
+                          'HKLM:\SOFTWARE\WOW6432Node\Python\PythonCore\3.14',
+                          'HKCU:\SOFTWARE\Python\PythonCore\3.14'
+          foreach ($key in $registryKeys) {
+            if (Test-Path $key) { "Removing $key"; Remove-Item $key -Recurse -Force }
+          }
+          $left = Get-Command python -ErrorAction SilentlyContinue
+          if ($left) { "Still on the PATH: $($left.Source)" } else { 'No Python on the PATH.' }
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            'The py launcher knows:'
+            & py -0p 2>&1 | Out-Host
+            $global:LASTEXITCODE = 0
+          }
+          ./packaging/windows/run-installer.ps1 -Label first
+      - name: Check the installation (Python and its libraries came from inside the installer)
+        shell: pwsh
+        run: ./packaging/windows/check-installed.ps1 -ExpectBundledPython
+      - name: Put something of the user's where an upgrade must not touch it, and turn the reminders on
+        shell: pwsh
+        run: |
+          foreach ($folder in (Join-Path $env:APPDATA 'multazem'), (Join-Path $env:LOCALAPPDATA 'multazem')) {
+              New-Item -ItemType Directory -Force $folder | Out-Null
+              Set-Content (Join-Path $folder 'keep-me.txt') 'the user''s data'
+          }
+          # What the Autostart button of the window does: the program's own code, in the installed environment.
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\Multazem'
+          & "$app\.venv\Scripts\python.exe" -c 'import sys; from multazem.services import background_service as s; ok, text = s.service_install(); print(text); sys.exit(0 if ok else 1)'
+          if ($LASTEXITCODE -ne 0) { throw 'The reminders could not be turned on.' }
+      - name: Run the installer again over the first installation (an upgrade)
+        shell: pwsh
+        timeout-minutes: 35
+        run: ./packaging/windows/run-installer.ps1 -Label second
+      - name: Check the upgraded installation (the reminders that were on are on again)
+        shell: pwsh
+        run: |
+          foreach ($folder in (Join-Path $env:APPDATA 'multazem'), (Join-Path $env:LOCALAPPDATA 'multazem')) {
+              if (-not (Test-Path (Join-Path $folder 'keep-me.txt'))) { throw "The upgrade removed the user's data in $folder." }
+          }
+          # Same Python, so the Python environment of the first installation is reused, not made again.
+          $log = Get-Content (Join-Path $env:LOCALAPPDATA 'multazem\install.log') -Raw
+          if ($log -match 'recreating it') {
+              throw 'The upgrade recreated the Python environment although Python had not changed.'
+          }
+          ./packaging/windows/check-installed.ps1 -ExpectAutostart
+      # This runner has the Visual C++ Redistributable, so the program starting here proves nothing about a machine
+      # that lacks it. Two steps cover that. Both run on the upgraded installation, and even when an earlier step
+      # failed, so that the rest of the job still reports.
+      #   - The first reads the import tables of every program file and fails when a DLL that the program needs is
+      #     provided by nothing in the installation.
+      #   - The second imports the libraries the way the program does and fails when a Visual C++ runtime DLL was
+      #     loaded from the machine instead of from the installation.
+      - name: Which DLLs does the installed program need from the machine? (import tables)
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        env:
+          PYTHONUTF8: "1"
+        run: |
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\Multazem'
+          & "$app\.venv\Scripts\python.exe" -I packaging\windows\dlls.py scan --app $app --strict `
+              --json "$env:RUNNER_TEMP\dll-scan.json" --github
+          if ($LASTEXITCODE -ne 0) {
+              throw ("Something the installed program needs is provided by nothing in the installation, or the " +
+                     "scan failed (exit code $LASTEXITCODE); the list is above.")
+          }
+      - name: Where do the Visual C++ runtime DLLs of the running program come from?
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        env:
+          PYTHONUTF8: "1"
+        run: |
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\Multazem'
+          & "$app\.venv\Scripts\python.exe" packaging\windows\dlls.py loaded --app $app --strict
+          if ($LASTEXITCODE -ne 0) {
+              throw ("A library failed to import or a Visual C++ runtime DLL came from the machine instead of the " +
+                     "installation (exit code $LASTEXITCODE); the list is above.")
+          }
+      - name: Uninstall (the way Settings > Apps does)
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        timeout-minutes: 10
+        run: |
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\Multazem'
+          $uninstaller = Join-Path $app 'unins000.exe'
+          if (-not (Test-Path $uninstaller)) { throw "There is no uninstaller at $uninstaller." }
+          Start-Process -FilePath $uninstaller -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
+          # Inno Setup's uninstaller hands over to a copy of itself, so wait until the files are really gone.
+          $deadline = (Get-Date).AddMinutes(3)
+          while ((Test-Path (Join-Path $app '.venv')) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 2 }
+          foreach ($gone in '.venv', 'gtk', 'python', 'wheelhouse', 'src') {
+              if (Test-Path (Join-Path $app $gone)) { throw "The uninstaller left $gone in $app." }
+          }
+          $run = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue
+          if ($run -and ($run.PSObject.Properties.Name -contains 'Multazem')) {
+              throw 'The uninstaller left the sign-in entry of the reminders.'
+          }
+          if (Test-Path 'HKCU:\Software\Classes\AppUserModelId\com.github.multazem') {
+              throw 'The uninstaller left the notification identity of the program.'
+          }
+          $running = @(Get-CimInstance Win32_Process |
+              Where-Object { $_.CommandLine -match 'multazem\s+--headless' })
+          if ($running.Count -gt 0) { throw 'A background process of the program is still running.' }
+          foreach ($folder in (Join-Path $env:APPDATA 'multazem'), (Join-Path $env:LOCALAPPDATA 'multazem')) {
+              if (-not (Test-Path (Join-Path $folder 'keep-me.txt'))) { throw "The uninstaller removed the user's data in $folder." }
+          }
+          'The uninstaller removed the program and left the user''s data.'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dll-scan
+          path: ${{ runner.temp }}/dll-scan.json
+          if-no-files-found: ignore
+
+  # Manual only. The installation by script, with a Start menu entry and the reminders turned on (the installer's
+  # "autostart" task does the same): then it checks the entry points at something that exists, that the reminders run
+  # and turn off, and launches the application the way the Start menu entry does (pythonw.exe, with and without the
+  # software renderer), keeping a screenshot of each.
+  windows-full-install:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install everything
+        id: install
+        shell: pwsh
+        run: ./scripts/install-windows.ps1 -PythonVersion 3.14 -WithTests -Autostart
+      - name: The Start menu entry points at something that exists
+        shell: pwsh
+        run: |
+          $link = Join-Path ([Environment]::GetFolderPath('Programs')) 'Multazem.lnk'
+          if (-not (Test-Path $link)) { throw "Start menu entry missing: $link" }
+          $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($link)
+          "Target:    $($shortcut.TargetPath)"
+          "Arguments: $($shortcut.Arguments)"
+          "Icon:      $($shortcut.IconLocation)"
+          if (-not (Test-Path $shortcut.TargetPath)) { throw 'The shortcut target does not exist.' }
+      - name: The reminders are on (the install script turned them on, as the Autostart button does)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          .venv\Scripts\python.exe -c 'import sys; from multazem.services import background_service as s; print("sign-in entry:", s.service_is_enabled(), "process running:", s.service_is_active()); sys.exit(0 if s.service_is_enabled() and s.service_is_active() else 1)'
+          if ($LASTEXITCODE -ne 0) { throw 'The reminders are not on after -Autostart.' }
+      - name: Test suite
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        shell: pwsh
+        run: .venv\Scripts\python.exe -m pytest -q
+      - name: Launch the application
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force screenshots | Out-Null
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $python = (Resolve-Path .venv\Scripts\pythonw.exe).Path
+          $failed = $false
+          foreach ($renderer in 'default', 'cairo') {
+              if ($renderer -eq 'cairo') {
+                  $env:GSK_RENDERER = 'cairo'
+              } else {
+                  Remove-Item Env:GSK_RENDERER -ErrorAction SilentlyContinue
+              }
+              $process = Start-Process -FilePath $python -ArgumentList '-m', 'multazem' -PassThru
+              Start-Sleep -Seconds 20
+              if ($process.HasExited) {
+                  Write-Host "[$renderer] the application exited early with code $($process.ExitCode)"
+                  $failed = $true
+              } else {
+                  Write-Host "[$renderer] the application is still running after 20 seconds"
+              }
+              try {
+                  $bounds = [System.Windows.Forms.SystemInformation]::VirtualScreen
+                  $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+                  $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+                  $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+                  $bitmap.Save((Join-Path (Get-Location) "screenshots\$renderer.png"))
+              } catch { Write-Host "[$renderer] no screenshot: $($_.Exception.Message)" }
+              # A venv's pythonw.exe starts the real interpreter as a child, so stop the whole process tree;
+              # otherwise the first window would still be on screen during the second launch.
+              # taskkill fails when part of the tree is already gone (the real interpreter is a child of this
+              # launcher and may have ended with it), and the step would take its exit code as its own: so it is
+              # run by cmd and forgotten.
+              if (-not $process.HasExited) {
+                  cmd /c "taskkill /PID $($process.Id) /T /F >nul 2>&1"; $global:LASTEXITCODE = 0
+              }
+              Start-Sleep -Seconds 3
+          }
+          $log = Join-Path $env:LOCALAPPDATA 'multazem\multazem.log'
+          if (Test-Path $log) {
+              Copy-Item $log screenshots\multazem.log
+              Write-Host '--- multazem.log'
+              Get-Content $log
+          }
+          if ($failed) { exit 1 }
+      - name: Remove it again with the uninstall script
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          ./scripts/uninstall-windows.ps1
+          $link = Join-Path ([Environment]::GetFolderPath('Programs')) 'Multazem.lnk'
+          if (Test-Path $link) { throw 'The uninstall script left the Start menu entry.' }
+          $run = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue
+          if ($run -and ($run.PSObject.Properties.Name -contains 'Multazem')) {
+              throw 'The uninstall script left the sign-in entry of the reminders.'
+          }
+          if (Test-Path '.venv') { throw 'The uninstall script left the Python environment.' }
+          $running = @(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'multazem\s+--headless' })
+          if ($running.Count -gt 0) { throw 'The uninstall script left the background process running.' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: launch-screenshots
+          path: screenshots/*
+          if-no-files-found: ignore

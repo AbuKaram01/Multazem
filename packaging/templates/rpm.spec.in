@@ -1,0 +1,58 @@
+Name:           @PKG_NAME@
+Version:        @VERSION@
+Release:        1%{?dist}
+Summary:        Prayer time reminders via desktop notifications
+License:        MIT
+BuildArch:      noarch
+# Every real runtime dependency is already declared by hand below, so
+# rpmbuild's automatic dependency scanner (which would otherwise inspect each
+# payload file, including the shebang of /usr/bin/@PKG_NAME@) is switched off.
+# Note: this does not stop rpmbuild from opening the system RPM database on a
+# non-RPM-native distro; that is handled by the rpmbuild flags further down.
+AutoReqProv:    no
+
+Requires:       python3 >= 3.11
+Requires:       python3-gobject
+Requires:       gtk4
+Requires:       libadwaita >= 1.5
+Requires:       libnotify
+Requires:       tzdata
+Recommends:     hicolor-icon-theme
+# Renamed from @LEGACY_PKG_NAME@: the new package takes its place on upgrade.
+Obsoletes:      @LEGACY_PKG_NAME@
+
+%description
+A GTK4 + libadwaita desktop app that calculates the five daily prayer
+times locally and sends a desktop notification at each one, with an
+optional reminder beforehand. Supports several calculation methods and a
+built-in list of Egyptian cities, and can run in the background through
+a systemd user service. Fully offline — no dependencies are downloaded or
+compiled at install time.
+
+%install
+rm -rf %{buildroot}
+mkdir -p %{buildroot}
+cp -a @RPM_ROOT@/. %{buildroot}/
+
+%files
+# Explicit ownership: older rpm versions record the user who ran rpmbuild as the
+# owner when %defattr is missing (modern rpm already defaults to root; this just
+# makes the result independent of the rpm version that built it).
+%defattr(-,root,root,-)
+/opt/@PKG_NAME@
+/usr/bin/@PKG_NAME@
+/usr/share/applications/@APP_ID@.desktop
+/usr/share/metainfo/@APP_ID@.metainfo.xml
+/usr/share/icons/hicolor/scalable/apps/@APP_ID@.svg
+/usr/share/licenses/@PKG_NAME@
+
+%post
+gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor >/dev/null 2>&1 || :
+
+%postun
+# $1 is the count of this package's installs remaining after the
+# operation — 0 means a full removal, not an upgrade in progress.
+if [ "$1" = "0" ]; then
+    rm -rf /opt/@PKG_NAME@
+fi
+gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor >/dev/null 2>&1 || :

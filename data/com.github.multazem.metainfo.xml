@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me> -->
+<!-- SPDX-License-Identifier: CC0-1.0 -->
+<component type="desktop-application">
+  <id>com.github.multazem</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Multazem</name>
+  <summary>Prayer time reminders via desktop notifications</summary>
+  <summary xml:lang="ar">تذكير بمواقيت الصلاة عبر إشعارات سطح المكتب</summary>
+  <description>
+    <p>
+      A GNOME app that calculates the five daily prayer times fully offline
+      and sends an accurate desktop notification at each prayer time.
+      Supports multiple calculation methods, a built-in Egypt city picker
+      that you can extend with your own regions, an English and Arabic
+      interface, and automatic background operation via systemd.
+    </p>
+    <p xml:lang="ar">
+      تطبيق GNOME يحسب مواقيت الصلاة الخمسة محليًا (بدون إنترنت) ويبعت إشعار
+      سطح مكتب دقيق في وقت كل صلاة. يدعم عدة طرق حساب، وجدول مدن مصر المدمج
+      مع إمكانية إضافة مناطقك الخاصة، وواجهة بالعربية والإنجليزية،
+      والتشغيل التلقائي في الخلفية عبر systemd.
+    </p>
+  </description>
+  <developer id="io.github.abukaram01">
+    <name>AbuKaram01</name>
+  </developer>
+  <launchable type="desktop-id">com.github.multazem.desktop</launchable>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="0.1.0" date="2026-08-14">
+      <description>
+        <p>First release.</p>
+        <p xml:lang="ar">أول إصدار.</p>
+      </description>
+    </release>
+  </releases>
+</component>

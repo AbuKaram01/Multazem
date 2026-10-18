@@ -1,0 +1,39 @@
+# Maintainer: AbuKaram01 <abukaram01@proton.me>
+# SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
+# SPDX-License-Identifier: MIT
+# shellcheck shell=bash disable=SC2034,SC2154
+
+_projroot="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+pkgname=multazem
+pkgver="$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' "$_projroot/src/multazem/__init__.py")"
+pkgrel=1
+pkgdesc="Prayer time reminders via desktop notifications"
+arch=('any')
+license=('MIT')
+depends=(
+    'python'
+    'python-gobject'
+    'gtk4'
+    'libadwaita>=1.5'
+    'libnotify'
+    'tzdata'
+    'hicolor-icon-theme'
+)
+replaces=('salah-reminder')
+conflicts=('salah-reminder')
+source=()
+sha256sums=()
+
+package() {
+    # The payload, launcher, desktop entry and icons are laid out by the same code
+    # that builds the .deb and .rpm (see stage.sh).
+    PROJECT_ROOT="$_projroot"
+    PKG_NAME="$pkgname"
+    APP_ID=com.github.multazem
+    # shellcheck source=packaging/stage.sh
+    source "$PROJECT_ROOT/packaging/stage.sh"
+
+    stage_payload "$pkgdir"
+    install -Dm644 "$PROJECT_ROOT/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

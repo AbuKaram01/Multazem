@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me> -->
+<!-- SPDX-License-Identifier: MIT -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Dusk niche: the sun setting inside a mihrab. Two shapes on a dark plum tile.
+       The arch legs sit at x=36 and x=92 with an 8-unit stroke, i.e. on whole pixels at
+       16, 32, 48 and 64 px, so the outline stays crisp at small sizes. -->
+  <rect width="128" height="128" rx="28" fill="#2B1538"/>
+  <path d="M36 112V70A56 56 0 0 1 64 21.5A56 56 0 0 1 92 70V112" fill="none" stroke="#EAD7B5" stroke-width="8" stroke-linejoin="miter"/>
+  <path d="M45 112A19 19 0 0 1 83 112Z" fill="#F08A4B"/>
+</svg>
