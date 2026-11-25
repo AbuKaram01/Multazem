@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""Switching the language of the main window and the preferences, live and across restarts (GTK app under Xvfb)."""
 
 import pytest
 
@@ -77,7 +78,7 @@ def test_language_changed_in_the_settings_file_is_applied_while_running(tmp_path
 
 
 def test_the_chosen_language_is_remembered_across_restarts(tmp_path):
-    first, err1 = run_scenario(
+    _, err1 = run_scenario(
         tmp_path,
         """
         def step1():

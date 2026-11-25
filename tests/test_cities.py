@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""Sanity checks of the bundled table of Egyptian cities: clean names, expected scripts and plausible coordinates."""
 
 from multazem.core.egypt_cities import EGYPT_CITIES
 

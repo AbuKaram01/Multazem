@@ -5,6 +5,9 @@
 #
 #   Every push and pull request:  linux, windows-core, windows-gtk, installer
 #   Manual only (Actions > CI > Run workflow):  windows-installer-run, windows-full-install
+#
+# ruff is pinned: a newer release brings new rules, and a push must not turn red because a linter changed. To
+# move to a newer one, change the version below (two places), run ruff locally and fix what it reports.
 
 name: CI
 
@@ -14,11 +17,16 @@ on:
   # The manual run starts only the two jobs marked "Manual only" below.
   workflow_dispatch:
 
+env:
+  # No message box may open in an automated run: nobody can click it, and the job would wait until it is cancelled.
+  MULTAZEM_NO_DIALOGS: "1"
+
 jobs:
   # The whole test suite on Linux, GUI tests included (GTK runs under a virtual display), after the linters.
   linux:
     if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: System packages
@@ -28,7 +36,7 @@ jobs:
       - name: Python environment
         run: |
           python3 -m venv --system-site-packages .venv
-          .venv/bin/pip install adhanpy pytest pyyaml ruff
+          .venv/bin/pip install adhanpy pytest pyyaml ruff==0.17.6
           .venv/bin/pip install --no-deps -e .
       - run: .venv/bin/ruff check .
       - run: .venv/bin/ruff format --check .
@@ -41,12 +49,13 @@ jobs:
   windows-core:
     if: github.event_name != 'workflow_dispatch'
     runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install adhanpy tzdata pytest pyyaml ruff
+      - run: pip install adhanpy tzdata pytest pyyaml ruff==0.17.6
       - run: pip install --no-deps -e .
       - run: ruff check .
       - run: ruff format --check .
@@ -65,7 +74,7 @@ jobs:
               }
           }
           if ($failed) { throw 'A PowerShell script does not parse.' }
-      - run: pytest -q
+      - run: pytest -q -ra
 
   # The real thing: installs the GTK runtime with scripts/install-windows.ps1 and runs the whole suite, GUI tests
   # included, against GTK 4 and libadwaita on Windows. The Python version has to be the one the gvsbuild PyGObject
@@ -80,6 +89,7 @@ jobs:
   windows-gtk:
     if: github.event_name != 'workflow_dispatch'
     runs-on: windows-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -96,7 +106,7 @@ jobs:
         shell: pwsh
         env:
           MULTAZEM_REAL_WINDOWS_TESTS: "1"
-        run: .venv\Scripts\python.exe -m pytest -q
+        run: .venv\Scripts\python.exe -m pytest -q -ra
 
   # Builds the Windows installer and checks what went into it: the GTK runtime (pruned of the build tools of the
   # gvsbuild release), the Python installer and the Python libraries (the wheelhouse). The installer is kept as a
@@ -105,6 +115,7 @@ jobs:
     if: github.event_name != 'workflow_dispatch'
     runs-on: windows-latest
     needs: windows-core
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       # The Python libraries inside the installer are collected with the Python of the GTK runtime.
@@ -218,7 +229,7 @@ jobs:
           }
           # What the Autostart button of the window does: the program's own code, in the installed environment.
           $app = Join-Path $env:LOCALAPPDATA 'Programs\Multazem'
-          & "$app\.venv\Scripts\python.exe" -c 'import sys; from multazem.services import background_service as s; ok, text = s.service_install(); print(text); sys.exit(0 if ok else 1)'
+          & "$app\.venv\Scripts\python.exe" -c 'import sys; from multazem.services import background_service as s; ok, text = s.service_install(); sys.stdout.reconfigure(errors=''replace''); print(text.lstrip(chr(10003) + chr(32))); sys.exit(0 if ok else 1)'
           if ($LASTEXITCODE -ne 0) { throw 'The reminders could not be turned on.' }
       - name: Run the installer again over the first installation (an upgrade)
         shell: pwsh
@@ -340,7 +351,7 @@ jobs:
       - name: Test suite
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         shell: pwsh
-        run: .venv\Scripts\python.exe -m pytest -q
+        run: .venv\Scripts\python.exe -m pytest -q -ra
       - name: Launch the application
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         shell: pwsh

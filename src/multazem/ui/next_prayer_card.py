@@ -14,6 +14,7 @@ _LINE_SPACING = 6
 
 
 def _label(*css_classes: str, text: str = "") -> Gtk.Label:
+    """Creates a label with the given CSS classes and text."""
     label = Gtk.Label(label=text)
     for css_class in css_classes:
         label.add_css_class(css_class)
@@ -21,6 +22,8 @@ def _label(*css_classes: str, text: str = "") -> Gtk.Label:
 
 
 class NextPrayerCard(Gtk.Box):
+    """Card with the name of the next prayer, its time and the countdown to it."""
+
     def __init__(self) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self.add_css_class("card")
@@ -44,14 +47,23 @@ class NextPrayerCard(Gtk.Box):
         self.append(inner)
 
     def show_prayer(self, name: str, time_text: str, countdown_text: str) -> None:
+        """Replaces the three lines of the card.
+
+        Args:
+            name: Display name of the prayer.
+            time_text: Its start time as ``HH:MM``.
+            countdown_text: The formatted time remaining.
+        """
         self._name_label.set_text(name)
         self._time_label.set_text(time_text)
         self._countdown_label.set_text(countdown_text)
 
     @property
     def name_text(self) -> str:
+        """The text of the prayer-name line (used by the tests)."""
         return self._name_label.get_text()
 
     @property
     def countdown_text(self) -> str:
+        """The text of the countdown line (used by the tests)."""
         return self._countdown_label.get_text()

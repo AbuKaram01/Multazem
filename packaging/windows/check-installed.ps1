@@ -225,6 +225,14 @@ import time
 from multazem.services import windows_service as service
 from multazem.services.paths import local_data_dir
 
+
+def show(text):
+    # A program that prints into a pipe uses the ANSI code page, which lacks the check mark of the messages and Arabic
+    # letters: the check mark is cut off and anything else becomes a question mark instead of an error.
+    sys.stdout.reconfigure(errors="replace")
+    print(text.lstrip(chr(10003) + " "))
+
+
 expect_on = sys.argv[1] == "on"
 pid_file = local_data_dir() / "background.pid"
 assert service.service_is_enabled() == expect_on, "the Run value is not what the installation should have left"
@@ -232,7 +240,7 @@ assert service.service_is_active() == expect_on, "the background process is not 
 
 if not expect_on:
     ok, text = service.service_install()
-    print(text)
+    show(text)
     assert ok, "the background reminders could not be turned on"
 assert service.service_is_enabled() and service.service_is_active()
 # The process takes its lock first and writes its process id a moment later.
@@ -244,7 +252,7 @@ assert pid_file.read_text(encoding="ascii").strip().isdigit(), "the process id f
 print("reminders on, process", pid_file.read_text(encoding="ascii").strip())
 
 ok, text = service.service_uninstall()
-print(text)
+show(text)
 assert ok, "the background reminders could not be turned off"
 deadline = time.monotonic() + 10
 while service.service_is_active() and time.monotonic() < deadline:

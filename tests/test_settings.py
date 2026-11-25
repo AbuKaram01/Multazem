@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""Settings: defaults, validation of saved values, persistence, change detection and listeners."""
 
 import json
 import os
+import sys
 import threading
 from pathlib import Path
 
@@ -18,8 +20,9 @@ from multazem.services.settings import DEFAULTS, PRAYER_NOTIFY_KEYS, Settings
 
 
 def write(path: Path, content, mode="w"):
+    """Writes ``content`` to ``path``, creating its directory."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, mode) as handle:
+    with path.open(mode) as handle:
         handle.write(content)
 
 
@@ -82,18 +85,19 @@ def test_settings_file_from_before_the_language_option_opens_in_english(settings
 
 
 @pytest.mark.parametrize("value", ["", "relative/path", "./x", "~/cfg"])
-def test_xdg_config_home_empty_or_relative_is_ignored(monkeypatch, tmp_path, value):
+def test_xdg_config_home_empty_or_relative_is_ignored(off_windows, monkeypatch, tmp_path, value):
     monkeypatch.setenv("HOME", str(tmp_path / "h"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "h"))  # where Path.home() looks on Windows
     monkeypatch.setenv("XDG_CONFIG_HOME", value)
     assert config_home() == tmp_path / "h" / ".config"
 
 
-def test_xdg_config_home_absolute_is_honoured(monkeypatch, tmp_path):
+def test_xdg_config_home_absolute_is_honoured(off_windows, monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "custom"))
     assert config_home() == tmp_path / "custom"
 
 
-def test_default_files_follow_xdg(monkeypatch, tmp_path):
+def test_default_files_follow_xdg(off_windows, monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "custom"))
     assert paths.config_dir() == tmp_path / "custom" / "multazem"
     assert paths.settings_file().name == "settings.json"
@@ -101,7 +105,7 @@ def test_default_files_follow_xdg(monkeypatch, tmp_path):
     assert paths.settings_file().parent == paths.custom_regions_file().parent
 
 
-def test_settings_default_to_the_xdg_file(monkeypatch, tmp_path):
+def test_settings_default_to_the_xdg_file(off_windows, monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "custom"))
     Settings()
     assert (tmp_path / "custom" / "multazem" / "settings.json").exists()
@@ -241,6 +245,9 @@ def test_reload_keeps_memory_when_external_file_becomes_corrupt_or_vanishes(sett
 def test_concurrent_reader_never_sees_a_torn_file(settings_path):
     writer = Settings(settings_path)
     stop, errors = threading.Event(), []
+    # On Windows a reader that arrives in the instant of the swap can be refused for a moment. That is not a torn
+    # file, which is what this test is about (the writer retries the swap, see the atomic_json tests).
+    refused_for_a_moment = PermissionError if sys.platform == "win32" else ()
 
     def write_loop():
         i = 0
@@ -254,6 +261,8 @@ def test_concurrent_reader_never_sees_a_torn_file(settings_path):
         for _ in range(1500):
             try:
                 json.loads(settings_path.read_bytes())
+            except refused_for_a_moment:
+                continue
             except (ValueError, FileNotFoundError) as error:
                 errors.append(error)
     finally:

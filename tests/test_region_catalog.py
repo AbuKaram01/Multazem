@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""The region catalog: built-in plus custom regions, ordering, lookup, persistence and recovery from bad files."""
 
 import json
 
@@ -204,7 +205,7 @@ def test_an_unreadable_file_is_not_overwritten(regions_path, monkeypatch, capsys
     assert regions_path.read_bytes() == before
 
 
-def test_the_default_location_follows_xdg(monkeypatch, tmp_path):
+def test_the_default_location_follows_xdg(off_windows, monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
     RegionCatalog().add("Home", "1", "2", "UTC")
     assert (tmp_path / "xdg" / "multazem" / "regions.json").exists()

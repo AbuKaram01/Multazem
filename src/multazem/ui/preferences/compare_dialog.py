@@ -14,6 +14,7 @@ from ...core.prayer_times import CalculationParams
 from ...i18n import describe_error, tr
 from ...services.settings import Settings
 
+# Widths of the method, Fajr and Isha columns, in pixels.
 _COLUMN_WIDTHS = (240, 65, 65)
 _ROW_MARGIN = 3
 _SEPARATOR_MARGIN = 6
@@ -21,6 +22,7 @@ _TABLE_MARGIN = 12
 
 
 def _cell(text: str, width: int, *, caption: bool = False, accent: bool = False) -> Gtk.Label:
+    """Creates one table cell with a fixed width."""
     label = Gtk.Label(label=text)
     label.set_size_request(width, -1)
     label.set_halign(Gtk.Align.START)
@@ -35,6 +37,7 @@ def _cell(text: str, width: int, *, caption: bool = False, accent: bool = False)
 
 
 def _row(texts: tuple[str, str, str], *, header: bool = False, current: bool = False) -> Gtk.Box:
+    """Creates a table row; the header row is dimmed and the current method's row is accented."""
     row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
     if not header:
         row.set_margin_top(_ROW_MARGIN)
@@ -45,6 +48,7 @@ def _row(texts: tuple[str, str, str], *, header: bool = False, current: bool = F
 
 
 def _separator() -> Gtk.Separator:
+    """Creates the separator line under the table header."""
     separator = Gtk.Separator()
     separator.set_margin_top(_SEPARATOR_MARGIN)
     separator.set_margin_bottom(_SEPARATOR_MARGIN)
@@ -52,12 +56,14 @@ def _separator() -> Gtk.Separator:
 
 
 def _error_label(error: ValueError) -> Gtk.Label:
+    """Creates the line shown instead of the table when the times cannot be calculated."""
     label = Gtk.Label(label=f"⚠️ {describe_error(error)}")
     label.set_wrap(True)
     return label
 
 
 def _build_table(params: CalculationParams) -> Gtk.Box:
+    """Builds the comparison table for the given location, date and Asr setting."""
     table = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
     table.set_margin_top(_TABLE_MARGIN)
     table.append(
@@ -81,6 +87,12 @@ def _build_table(params: CalculationParams) -> Gtk.Box:
 
 
 def show_method_comparison(parent: Gtk.Window, settings: Settings) -> None:
+    """Shows Fajr and Isha for every method at the configured location and date.
+
+    Args:
+        parent: The window the dialog is presented over.
+        settings: Supplies the location, date and Asr school to compare with.
+    """
     dialog = Adw.AlertDialog()
     dialog.set_heading(tr("prefs.compare.dialog.heading"))
     dialog.set_body(tr("prefs.compare.dialog.body"))

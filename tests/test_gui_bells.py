@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""The per-prayer notification bells of the main window, checked in the real application under Xvfb."""
 
 import pytest
 
@@ -69,7 +70,7 @@ def test_sunrise_has_a_bell_that_behaves_exactly_like_the_prayers(tmp_path):
 
 
 def test_the_sunrise_choice_is_remembered_across_restarts(tmp_path):
-    first, err1 = run_scenario(
+    _, err1 = run_scenario(
         tmp_path,
         """
         def step1():

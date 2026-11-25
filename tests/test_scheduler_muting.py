@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""Muting prayers: a muted entry gets neither its notification nor its reminder, also when muted by another process."""
 
 from datetime import datetime
 

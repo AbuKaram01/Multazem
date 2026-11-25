@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""The preferences dialog: live updates, single instance and language (real GTK app under Xvfb)."""
 
 import pytest
 

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""The main window: layout, direction, city names, polar locations and icons (real GTK app under Xvfb)."""
 
 import pytest
 
@@ -151,7 +152,7 @@ def test_countdown_after_isha_points_to_tomorrows_fajr_and_is_cached(tmp_path):
 
 
 def test_highlight_follows_the_next_prayer_while_the_window_is_open(tmp_path):
-    out, err = run_scenario(
+    out, _ = run_scenario(
         tmp_path,
         """
         from datetime import datetime, timedelta
@@ -198,8 +199,10 @@ def test_closing_the_window_keeps_notifications_alive_when_no_service_runs(tmp_p
 
 
 def test_prayer_icons_and_bundled_bell_icons_all_resolve(tmp_path):
-    """Maghrib used to render distorted (``emblem-default-symbolic``): every icon in use
-    must exist in the theme."""
+    """Regression test: Maghrib used to render distorted (``emblem-default-symbolic``).
+
+    Every icon in use must exist in the theme.
+    """
     out, err = run_scenario(
         tmp_path,
         """

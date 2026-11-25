@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""Notification settings and the "send a test notification" action."""
 
 from __future__ import annotations
 
@@ -14,11 +15,19 @@ from ...services.notifications import send_notification
 from ...services.settings import MIN_REMINDER_MINUTES, Settings
 from ..bindings import bind_spin_row, bind_switch_row
 
+# The settings accept up to a day, but an hour is the most the spin row offers.
 _MAX_REMINDER_MINUTES_IN_UI = 60
 _TEST_ICON = "dialog-information-symbolic"
 
 
 class NotificationGroup(Adw.PreferencesGroup):
+    """Preferences group for notification switches, the reminder time and a test notification.
+
+    Args:
+        settings: The settings to read and write.
+        show_toast: Shows a message to the user.
+    """
+
     def __init__(self, settings: Settings, show_toast: Callable[[str], None]) -> None:
         super().__init__(title=tr("prefs.notifications.title"))
         self._show_toast = show_toast
@@ -41,6 +50,7 @@ class NotificationGroup(Adw.PreferencesGroup):
         self.add(self._build_test_row())
 
     def _build_test_row(self) -> Adw.ActionRow:
+        """Builds the row with the "send a test notification" button."""
         row = Adw.ActionRow(title=tr("prefs.test.title"), subtitle=tr("prefs.test.subtitle"))
         button = Gtk.Button(label=tr("prefs.test.button"))
         button.set_valign(Gtk.Align.CENTER)
@@ -51,6 +61,7 @@ class NotificationGroup(Adw.PreferencesGroup):
         return row
 
     def _on_test_clicked(self, button: Gtk.Button) -> None:
+        """Sends a test notification on a worker thread and reports the outcome with a toast."""
         button.set_sensitive(False)
 
         def work() -> None:

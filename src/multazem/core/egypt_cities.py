@@ -1,6 +1,12 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""The bundled table of Egyptian cities used as the built-in list of regions.
+
+Each row of :data:`EGYPT_CITIES` is ``(Arabic name, English name, latitude, longitude)`` with the
+coordinates in decimal degrees. All of them lie in the time zone of Cairo.
+"""
+
 from __future__ import annotations
 
 EGYPT_CITIES: tuple[tuple[str, str, float, float], ...] = (

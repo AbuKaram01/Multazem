@@ -79,6 +79,17 @@ def default_language():
 
 
 @pytest.fixture
+def off_windows(monkeypatch):
+    """Makes the path functions behave as on Linux, whatever system the tests run on.
+
+    For the tests of the XDG rules: on real Windows the configuration lives in ``%APPDATA%`` instead.
+    """
+    from multazem.services import paths
+
+    monkeypatch.setattr(paths, "is_windows", lambda: False)
+
+
+@pytest.fixture
 def settings_path(tmp_path):
     """The location of a ``settings.json`` that does not exist yet, inside the test's temporary directory."""
     return tmp_path / "cfg" / "settings.json"

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""Hijri dates: the tabular conversion (checked against an independent one), the official-date parser and the sync."""
 
 import io
 from datetime import date, timedelta
@@ -83,6 +84,8 @@ def test_parse_official_hijri(text, expected):
 
 
 class Response(io.BytesIO):
+    """A fake HTTP response: a byte stream that also works as a context manager."""
+
     def __enter__(self):
         return self
 
@@ -91,6 +94,8 @@ class Response(io.BytesIO):
 
 
 def fetch(monkeypatch, body=None, exc=None):
+    """Runs ``fetch_official_hijri`` with ``urlopen`` replaced by a fake that returns ``body`` or raises ``exc``."""
+
     def urlopen(*_args, **_kwargs):
         if exc:
             raise exc
@@ -115,6 +120,8 @@ def test_official_date_page_is_parsed(monkeypatch):
 
 
 class ImmediateThread:
+    """Stands in for ``threading.Thread`` and runs the target synchronously when started."""
+
     def __init__(self, target, args=(), daemon=None):
         self._target, self._args = target, args
 

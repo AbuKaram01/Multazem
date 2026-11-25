@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""Adding custom regions from the preferences dialog (real GTK app under Xvfb)."""
 
 import json
 

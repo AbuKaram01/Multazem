@@ -9,9 +9,12 @@
 
 set -euo pipefail
 
+# Locations, resolved from this file so the script works from any current directory.
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK_DIR="$PROJECT_ROOT/packaging/work"
 OUT_DIR="$PROJECT_ROOT/packaging/dist"
+# Package identity shared by the templates. LEGACY_PKG_NAME is the former name that the
+# new package replaces on upgrade.
 PKG_NAME="multazem"
 LEGACY_PKG_NAME="salah-reminder"
 APP_ID="com.github.multazem"
@@ -20,20 +23,30 @@ MAINTAINER="AbuKaram01 <abukaram01@proton.me>"
 # shellcheck source=packaging/stage.sh
 source "$PROJECT_ROOT/packaging/stage.sh"
 
+# Prints $1 as a progress message.
 info() { printf '\033[1;34m==>\033[0m %s\n' "$1"; }
+# Prints $1 as a success message.
 ok() { printf '\033[1;32m\xE2\x9C\x93\033[0m %s\n' "$1"; }
+# Prints $1 as a warning; the build goes on.
 warn() { printf '\033[1;33m! %s\033[0m\n' "$1"; }
+# Prints $1 to stderr and aborts the script with status 1.
 die() {
     printf '\033[1;31m\xE2\x9C\x97 %s\033[0m\n' "$1" >&2
     exit 1
 }
 
+# Succeeds when the command $1 is installed.
 have() { command -v "$1" >/dev/null 2>&1; }
 
+# Prints the application version from src/multazem/__init__.py, or nothing if it cannot be read.
 read_version() {
     sed -n 's/^__version__ = "\(.*\)"$/\1/p' "$PROJECT_ROOT/src/multazem/__init__.py" 2>/dev/null || true
 }
 
+# Stops the build unless this is a complete checkout: every file the packages are made from
+# must exist and the version must be known.
+# Globals:
+#   VERSION: the application version, set by main.
 check_sources() {
     local required=(
         "src/multazem/__init__.py"
@@ -56,6 +69,7 @@ check_sources() {
     [ -d "$VENDOR_DIR/adhanpy" ] || die "packaging/vendor/adhanpy is missing (the bundled prayer-time library)."
 }
 
+# Stops the build with installation hints when none of the three packaging tools is present.
 require_a_packaging_tool() {
     if have dpkg-deb || have rpmbuild || have makepkg; then
         return 0
@@ -76,6 +90,11 @@ escape_sed_replacement() {
 
 # Fills the @NAME@ placeholders of packaging/templates/$1 and writes the result to $2.
 # The common values are always available; further NAME=value pairs can be passed after $2.
+# Aborts when a placeholder is left over, which means a template names a value nobody supplied.
+# Arguments:
+#   $1: template file name.
+#   $2: destination path; its directory is created.
+#   $3...: extra NAME=value pairs.
 render_template() {
     local name="$1" destination="$2"
     local template="$TEMPLATES_DIR/$name"
@@ -99,6 +118,7 @@ render_template() {
     fi
 }
 
+# Builds the .deb into $OUT_DIR, or skips with a warning when dpkg-deb is missing.
 build_deb() {
     if ! have dpkg-deb; then
         warn "dpkg-deb not found — skipping .deb (install dpkg-dev to build it)."
@@ -121,6 +141,10 @@ build_deb() {
     ok "$package"
 }
 
+# Builds the .rpm into $OUT_DIR, or skips with a warning when rpmbuild is missing.
+# A failing rpmbuild only warns, so a package built earlier is still delivered.
+# rpmbuild gets a private database directory so it never needs the system RPM database
+# (this is what lets it run on Debian-based machines).
 build_rpm() {
     if ! have rpmbuild; then
         warn "rpmbuild not found — skipping .rpm (install rpm-build: 'sudo dnf install rpm-build' on Fedora/RHEL, 'sudo zypper install rpm-build' on openSUSE)."
@@ -150,6 +174,8 @@ build_rpm() {
     fi
 }
 
+# Builds the Arch package with makepkg into $OUT_DIR. Skipped with a warning when makepkg is
+# missing or the script runs as root, because makepkg refuses to run as root.
 build_arch() {
     if ! have makepkg; then
         warn "makepkg not found — skipping the Arch package. It's Arch-specific tooling (ships with base-devel); build it on an Arch machine, either by running this script there or directly with 'cd packaging && makepkg -si'."
@@ -170,6 +196,7 @@ build_arch() {
     rm -rf "$PROJECT_ROOT/packaging/pkg" "$PROJECT_ROOT/packaging/src"
 }
 
+# Builds every package whose tool is installed, starting from a clean work and output directory.
 main() {
     VERSION="$(read_version)"
     check_sources

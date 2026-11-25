@@ -40,6 +40,8 @@ test = ["pytest>=7", "pyyaml"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 markers = ["gui: needs xvfb-run and GTK4/libadwaita (relatively slow)"]
+# A test that runs for more than five minutes is stuck: the stacks of all threads are printed, so the log says where.
+faulthandler_timeout = 300
 
 [tool.ruff]
 line-length = 120
@@ -96,4 +98,10 @@ max-positional-args = 6
 ]
 
 [tool.ruff.lint.isort]
-known-local-folder = ["scheduler_support", "gui_support", "windows_support", "packaging_support"]
+known-local-folder = [
+    "scheduler_support",
+    "gui_support",
+    "windows_support",
+    "packaging_support",
+    "platform_support",
+]

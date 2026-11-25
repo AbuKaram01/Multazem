@@ -18,6 +18,8 @@ from .services.paths import is_windows, local_data_dir, log_file, windows_icon_f
 from .services.windows_toast import APP_USER_MODEL_ID
 
 GTK_DIR_ENV = "MULTAZEM_GTK_DIR"
+# ``1`` keeps the program from opening message boxes: an automated run that nobody can click would wait for ever.
+NO_DIALOGS_ENV = "MULTAZEM_NO_DIALOGS"
 # A log that has grown past this size is moved aside when the program starts, so it cannot fill the disk.
 MAX_LOG_BYTES = 1024 * 1024
 
@@ -83,12 +85,27 @@ def configure_gtk(gtk: Path) -> None:
 # --- Process set-up ---
 
 
+def _replace_unencodable_characters(stream: object) -> None:
+    """Makes ``stream`` write ``?`` for a character that its encoding cannot hold, instead of raising.
+
+    The output of a Windows program that is redirected (to a file, a pipe or a CI log) is encoded with the ANSI code
+    page, which has neither the check mark of the messages nor Arabic letters. A console is not affected.
+    """
+    reconfigure = getattr(stream, "reconfigure", None)
+    if reconfigure is not None:
+        with contextlib.suppress(OSError, ValueError):
+            reconfigure(errors="replace")
+
+
 def ensure_standard_streams() -> None:
     """Gives a console-less process (``pythonw.exe``) working ``stdout`` and ``stderr``.
 
     Without them the first log line raises. Both go to the log file, so what the background process reports can
-    still be read afterwards; if the file cannot be opened the output is discarded.
+    still be read afterwards; if the file cannot be opened the output is discarded. The streams that exist are made
+    to survive characters their encoding lacks.
     """
+    _replace_unencodable_characters(sys.stdout)
+    _replace_unencodable_characters(sys.stderr)
     if sys.stdout is not None and sys.stderr is not None:
         return
     stream = None
@@ -137,6 +154,17 @@ def report_missing_toolkit(error: BaseException) -> None:
     )
     if sys.stderr is not None:
         sys.stderr.write(text + "\n")
+    show_error_box(text)
+
+
+def show_error_box(text: str) -> None:
+    """Shows ``text`` in a Windows message box and waits until it is closed.
+
+    A launch without a console has no other way to tell the user what went wrong. Nothing is shown when the
+    environment variable named by :data:`NO_DIALOGS_ENV` is ``1``.
+    """
+    if os.environ.get(NO_DIALOGS_ENV) == "1":
+        return
     with contextlib.suppress(Exception):
         import ctypes
 

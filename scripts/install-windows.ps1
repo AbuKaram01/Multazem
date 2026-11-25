@@ -336,9 +336,12 @@ if (-not $NoShortcut) {
 if ($Autostart) {
     Info 'Starting the prayer reminders in the background (and at every sign-in)...'
     # The program's own code does it, so that this and the Autostart button of the window cannot differ. The probe
-    # has no double quote: Windows PowerShell 5.1 drops the double quotes of an argument handed to a program.
+    # has no double quote: Windows PowerShell 5.1 drops the double quotes of an argument handed to a program. What
+    # a program prints into a pipe is encoded with the ANSI code page, which lacks the check mark of the message
+    # (and Arabic letters): the check mark is cut off and anything else becomes a question mark instead of an error.
     $service = "import sys; from multazem.services import background_service as s; ok, text = s.service_install(); " +
-               "print(text); sys.exit(0 if ok else 1)"
+               "sys.stdout.reconfigure(errors='replace'); print(text.lstrip(chr(10003) + chr(32))); " +
+               "sys.exit(0 if ok else 1)"
     $ErrorActionPreference = 'Continue'
     $serviceOutput = & $venvPython -c $service 2>&1
     $serviceExit = $LASTEXITCODE

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""Preferences dialog: location, calculation method, notifications and appearance."""
 
 from __future__ import annotations
 
@@ -21,6 +22,14 @@ TOAST_TIMEOUT_SECONDS = 4
 
 
 class PreferencesDialog(Adw.Window):
+    """Modal window with the groups of settings.
+
+    Args:
+        settings: The settings the groups read and write.
+        catalog: The region catalog used by the location group.
+        parent: The main window the dialog is modal for.
+    """
+
     def __init__(self, settings: Settings, catalog: RegionCatalog, parent: Gtk.Window) -> None:
         super().__init__()
         self._settings = settings
@@ -35,6 +44,7 @@ class PreferencesDialog(Adw.Window):
         self.rebuild()
 
     def rebuild(self) -> None:
+        """(Re)creates the content. Also used to re-render after a language change."""
         self.set_title(tr("prefs.title"))
 
         page = Adw.PreferencesPage()
@@ -54,4 +64,5 @@ class PreferencesDialog(Adw.Window):
         self._toast_overlay.set_child(root)
 
     def _show_toast(self, message: str) -> None:
+        """Shows a message inside the dialog."""
         self._toast_overlay.add_toast(make_toast(message, TOAST_TIMEOUT_SECONDS))

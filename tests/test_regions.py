@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""Regions and the validation of user-entered ones: names, coordinate parsing and limits."""
 
 import pytest
 
@@ -20,6 +21,7 @@ from multazem.i18n import LocalizedError
 
 
 def lat(text):
+    """Parses a latitude the way the form does."""
     return parse_coordinate(text, field="latitude", limit=90)
 
 

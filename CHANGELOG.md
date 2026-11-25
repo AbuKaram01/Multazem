@@ -25,3 +25,14 @@ All notable changes to Multazem are written here. The format follows
   Google-style docstrings and checked by a stricter ruff configuration; the large test files are split by topic.
 - `tzdata` is a dependency on Windows, which has no time zone database of its own, and PyGObject is not requested from
   PyPI there (its wheel comes with the GTK runtime).
+
+### Fixed
+
+- Windows: a program that prints into a pipe or a file (the installation script, a log) no longer fails on the check
+  mark of the messages or on Arabic letters, which the ANSI code page lacks; turning the background reminders on by
+  script (`-Autostart`) reported an error after it had already done its work.
+- Windows: saving the settings or the regions while the other process is reading the same file is tried again for a
+  moment instead of failing, because Windows refuses to replace a file that is open.
+- The error box for a missing GTK runtime is not opened when `MULTAZEM_NO_DIALOGS=1` is set (automated runs).
+- The tests no longer assume Linux (the time zone of the machine, `XDG_*` folders), no longer open a real message box,
+  and the license-header test no longer walks into a virtual environment inside the checkout.

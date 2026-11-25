@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""The language of notification texts: configured language, reminders and changes made by another process."""
 
 from multazem.i18n import set_language
 from multazem.services.settings import Settings

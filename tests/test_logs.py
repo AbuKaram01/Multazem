@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""The console logging: the ``[component]`` format, stream routing and idempotent configuration."""
+
 import logging
 
 from multazem.logs import configure_logging, get_logger

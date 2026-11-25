@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""Sunrise notifications: their own wording and reminder, in both languages, independent of the prayers."""
 
 from datetime import datetime
 

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""Architecture rules: layers depend only downwards and the core stays free of toolkit and environment access."""
 
 import ast
 from pathlib import Path
@@ -19,6 +20,7 @@ FORBIDDEN_THIRD_PARTY = {"core": {"gi"}, "i18n": {"gi"}}
 
 
 def imported_modules(path: Path) -> list[tuple[str, int]]:
+    """Returns the modules a source file imports as ``(absolute name, line number)``, resolving relative imports."""
     relative_parts = path.relative_to(PACKAGE_ROOT.parent).with_suffix("").parts
     package_parts = list(relative_parts[:-1])
     found = []
@@ -35,6 +37,7 @@ def imported_modules(path: Path) -> list[tuple[str, int]]:
 
 
 def layer_of(path: Path) -> str | None:
+    """Returns the layer (``i18n``, ``core``, ``services`` or ``ui``) a source file belongs to, or ``None``."""
     parts = path.relative_to(PACKAGE_ROOT).parts
     return parts[0] if len(parts) > 1 and parts[0] in ALLOWED_DEPENDENCIES else None
 

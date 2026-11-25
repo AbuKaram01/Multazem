@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""The message catalogs: identical keys and placeholders in both languages, fallbacks and localized errors."""
 
 import ast
 import re
@@ -36,6 +37,7 @@ WEEK = [date(2026, 10, 5) + timedelta(days=i) for i in range(7)]
 
 
 def placeholders(template: str) -> set[str]:
+    """Returns the names of the ``{placeholders}`` of a message template."""
     return {name for _, name, _, _ in string.Formatter().parse(template) if name is not None}
 
 
@@ -68,6 +70,7 @@ def test_english_messages_contain_no_arabic_and_arabic_ones_do():
 
 
 def _literal_translation_keys() -> dict[str, str]:
+    """Returns every message key the source code uses literally, mapped to the file that uses it."""
     found: dict[str, str] = {}
     for path in SOURCE_ROOT.rglob("*.py"):
         if "i18n" in path.relative_to(SOURCE_ROOT).parts:

@@ -45,12 +45,12 @@ def test_unusable_local_app_data_falls_back_to_the_profile_folder(on_windows, mo
     assert paths.local_data_dir() == Path.home() / "AppData" / "Local" / "multazem"
 
 
-def test_data_dir_follows_xdg_data_home_elsewhere(tmp_path, monkeypatch):
+def test_data_dir_follows_xdg_data_home_elsewhere(off_windows, tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "share"))
     assert paths.local_data_dir() == tmp_path / "share" / "multazem"
 
 
-def test_data_dir_defaults_to_local_share_elsewhere(monkeypatch):
+def test_data_dir_defaults_to_local_share_elsewhere(off_windows, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", "")
     assert paths.local_data_dir() == Path.home() / ".local" / "share" / "multazem"
 

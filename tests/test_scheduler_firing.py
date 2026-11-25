@@ -1,6 +1,10 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""When the notification scheduler fires: exact timing, reminders, grace periods, suspend, time zones and errors.
+
+All tests drive the scheduler with a fake clock and a recording notifier (see ``conftest.py``).
+"""
 
 import time
 from datetime import date, datetime, timedelta
@@ -13,6 +17,7 @@ from multazem.core.timeutil import wall_to_timestamp
 from multazem.i18n import tr
 from multazem.services.settings import Settings
 
+from platform_support import needs_tzset
 from scheduler_support import (
     ASR,
     CAIRO,
@@ -61,8 +66,11 @@ def test_stale_events_are_skipped_but_events_within_grace_fire(make, clock, h, m
 
 
 def test_suspend_does_not_swallow_later_notifications(make, clock):
-    """The main bug of the old engine (``threading.Timer``): after a suspend every timer was
-    delayed by the sleep duration, so all later notifications were dropped as "stale"."""
+    """Regression test for the old ``threading.Timer`` engine.
+
+    After a suspend every timer was delayed by the sleep duration, so all later notifications were
+    dropped as "stale".
+    """
     eng, rec = make()
     clock.set_wall(CAIRO, *D, 12, 0, 0)
     assert eng.tick() <= eng.MAX_SLEEP
@@ -76,6 +84,7 @@ def test_suspend_does_not_swallow_later_notifications(make, clock):
     assert rec.titles.count(ASR) == 1
 
 
+@needs_tzset
 def test_system_timezone_is_irrelevant(make, clock, monkeypatch):
     monkeypatch.setenv("TZ", "America/New_York")
     time.tzset()
@@ -157,7 +166,7 @@ def test_settings_changed_by_another_process_are_picked_up(make, clock, settings
 
 
 def test_invalid_timezone_at_runtime_does_not_kill_scheduling(make, clock, capsys):
-    eng, rec = make()
+    eng, _ = make()
     clock.set_wall(CAIRO, *D, 12, 0, 0)
     eng._settings._data["timezone_name"] = "Nope/Zone"
     assert eng.tick() == eng.ERROR_RETRY
@@ -167,8 +176,8 @@ def test_invalid_timezone_at_runtime_does_not_kill_scheduling(make, clock, capsy
     assert eng.tick() <= eng.MAX_SLEEP
 
 
-def test_polar_location_does_not_kill_scheduling(make, clock, capsys):
-    eng, rec = make()
+def test_polar_location_does_not_kill_scheduling(make, clock):
+    eng, _ = make()
     eng._settings.latitude, eng._settings.longitude, eng._settings.timezone_name = 88.0, 0.0, "UTC"
     clock.set_wall("UTC", *D, 12, 0, 0)
     assert eng.tick() == eng.ERROR_RETRY

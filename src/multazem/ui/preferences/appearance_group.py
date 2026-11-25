@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""Display options: language and Hijri date."""
 
 from __future__ import annotations
 
@@ -12,6 +13,8 @@ from ..bindings import bind_switch_row
 
 
 class AppearanceGroup(Adw.PreferencesGroup):
+    """Preferences group with the language selector and the Hijri-date switches."""
+
     def __init__(self, settings: Settings) -> None:
         super().__init__(title=tr("prefs.appearance.title"))
         self._settings = settings
@@ -26,6 +29,7 @@ class AppearanceGroup(Adw.PreferencesGroup):
         self.add(sync_row)
 
     def _build_language_row(self) -> Adw.ComboRow:
+        """Builds the language selector."""
         row = Adw.ComboRow(title=tr("prefs.language.title"), subtitle=tr("prefs.language.subtitle"))
         row.set_model(Gtk.StringList.new([LANGUAGE_NAMES[code] for code in SUPPORTED_LANGUAGES]))
         row.set_selected(SUPPORTED_LANGUAGES.index(self._settings.language))
@@ -33,4 +37,5 @@ class AppearanceGroup(Adw.PreferencesGroup):
         return row
 
     def _on_language_selected(self, row: Adw.ComboRow, _pspec: object) -> None:
+        """Stores the chosen language; the main window notices the change and re-renders."""
         self._settings.language = SUPPORTED_LANGUAGES[row.get_selected()]

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""The scheduler's wording on Fridays: Dhuhr is announced as Jumu'ah and keeps its everyday name on other days."""
 
 import time
 import zoneinfo
@@ -13,6 +14,7 @@ from multazem.core.prayer_times import calculate_prayer_times
 from multazem.core.prayers import Prayer
 from multazem.core.timeutil import wall_to_timestamp
 
+from platform_support import needs_tzset
 from scheduler_support import ASR, CAIRO, DHUHR, FAJR, FRIDAY, JUMUAH, NEXT_DAY, D, fire_dhuhr
 
 
@@ -70,6 +72,7 @@ def test_the_friday_switch_is_the_dhuhr_switch(make, clock):
     assert rec.titles == []
 
 
+@needs_tzset
 def test_friday_is_decided_by_the_date_at_the_location_not_on_the_machine(make, clock, monkeypatch):
     monkeypatch.setenv("TZ", "America/New_York")
     time.tzset()

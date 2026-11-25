@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""Every source file carries the short SPDX header, not the full license text, matching the declared licenses."""
 
 from __future__ import annotations
 
+import os
 import tomllib
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -12,29 +14,54 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 HOLDER = "2026 AbuKaram01 <abukaram01@proton.me>"
-SKIPPED_DIRS = {"vendor", "work", "pkg", "dist", "__pycache__", ".pytest_cache", ".ruff_cache"}
+SKIPPED_DIRS = {
+    "vendor",
+    "work",
+    "pkg",
+    "dist",
+    "build",
+    "node_modules",
+    ".git",
+    "__pycache__",
+    ".pytest_cache",
+    ".ruff_cache",
+}
+# Folders that the installation scripts and the installer build fill with other people's files.
+GENERATED_DIRS = {"packaging/gtk", "packaging/python", "packaging/wheelhouse"}
 SUFFIXES = {".py", ".sh", ".toml", ".desktop", ".xml", ".svg"}
 OWN_LICENSE = {"com.github.multazem.metainfo.xml": "CC0-1.0"}
 HEADER_WINDOW_LINES = 6
 
 
+def _is_foreign_directory(folder: Path) -> bool:
+    """Returns whether ``folder`` holds files that are not the project's: a virtual environment or generated output.
+
+    A virtual environment is recognised by its ``pyvenv.cfg``, whatever it is called: the CI jobs and the installation
+    scripts create one inside the checkout, and its thousands of library files carry other people's licenses.
+    """
+    relative = folder.relative_to(ROOT).as_posix()
+    return (
+        folder.name in SKIPPED_DIRS
+        or folder.name.endswith(".egg-info")
+        or relative in GENERATED_DIRS
+        or (folder / "pyvenv.cfg").is_file()
+    )
+
+
 def _source_files() -> list[Path]:
+    """Returns the project's source files that must carry a license header."""
     files = []
-    for path in sorted(ROOT.rglob("*")):
-        relative_parts = set(path.relative_to(ROOT).parts)
-        if (
-            path.is_file()
-            and not relative_parts & SKIPPED_DIRS
-            and (path.suffix in SUFFIXES or path.name == "PKGBUILD")
-        ):
-            files.append(path)
-    return files
+    for folder, subfolders, names in os.walk(ROOT):
+        subfolders[:] = [name for name in subfolders if not _is_foreign_directory(Path(folder, name))]
+        files.extend(Path(folder, name) for name in names if Path(name).suffix in SUFFIXES or name == "PKGBUILD")
+    return sorted(files)
 
 
 SOURCE_FILES = _source_files()
 
 
 def _id(path: Path) -> str:
+    """Returns the path relative to the project root, used as the test id."""
     return str(path.relative_to(ROOT))
 
 

@@ -67,7 +67,8 @@ def kernel(monkeypatch):
     return fake
 
 
-def test_every_launch_is_the_first_one_off_windows():
+def test_every_launch_is_the_first_one_off_windows(monkeypatch):
+    monkeypatch.setattr(si, "is_windows", lambda: False)
     guard = si.SingleInstance()
     assert guard.acquire() is True
     assert guard.request_activation() is False

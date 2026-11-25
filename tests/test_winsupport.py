@@ -3,8 +3,11 @@
 
 """Windows start-up work: finding the GTK runtime, console-less launches and the no-ops elsewhere."""
 
+import ctypes
+import io
 import os
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -16,6 +19,20 @@ from multazem import winsupport
 def on_windows(monkeypatch):
     """Makes the module believe it runs on Windows."""
     monkeypatch.setattr(winsupport, "is_windows", lambda: True)
+
+
+@pytest.fixture
+def off_windows(monkeypatch):
+    """Makes the module believe it runs on another system, whichever one the tests really run on."""
+    monkeypatch.setattr(winsupport, "is_windows", lambda: False)
+
+
+@pytest.fixture
+def message_boxes(monkeypatch):
+    """Records the texts of the message boxes instead of opening them (a real one would wait for a click)."""
+    shown = []
+    monkeypatch.setattr(winsupport, "show_error_box", shown.append)
+    return shown
 
 
 def make_runtime(root: Path) -> Path:
@@ -96,7 +113,7 @@ def test_an_existing_schema_directory_setting_is_kept(monkeypatch, tmp_path):
     assert os.environ["GSETTINGS_SCHEMA_DIR"] == "D:\\mine"
 
 
-def test_preparing_the_runtime_does_nothing_off_windows(monkeypatch):
+def test_preparing_the_runtime_does_nothing_off_windows(off_windows, monkeypatch):
     monkeypatch.setattr(winsupport, "find_gtk_runtime", lambda: pytest.fail("must not look for GTK"))
     winsupport.prepare_runtime()
 
@@ -142,6 +159,16 @@ def test_a_program_with_a_console_keeps_its_streams(monkeypatch, tmp_path, capsy
     assert not (tmp_path / "none").exists()
 
 
+def test_a_redirected_stream_prints_a_placeholder_for_what_its_encoding_lacks(monkeypatch):
+    raw = io.BytesIO()
+    stream = io.TextIOWrapper(raw, encoding="cp1252")
+    monkeypatch.setattr(sys, "stdout", stream)
+    winsupport.ensure_standard_streams()
+    stream.write("\u2713 installed")
+    stream.flush()
+    assert raw.getvalue() == b"? installed"
+
+
 def test_a_log_that_grew_too_big_is_moved_aside(monkeypatch, tmp_path):
     log = tmp_path / "multazem.log"
     log.write_bytes(b"x" * (winsupport.MAX_LOG_BYTES + 1))
@@ -166,18 +193,39 @@ def test_an_unwritable_log_discards_the_output_instead_of_failing(monkeypatch, t
     sys.stderr.close()
 
 
-def test_the_missing_toolkit_message_names_the_installer_and_the_override(on_windows, capsys, monkeypatch):
-    monkeypatch.setattr(winsupport, "set_app_user_model_id", lambda: None)
+def test_the_missing_toolkit_message_names_the_installer_and_the_override(on_windows, message_boxes, capsys):
     winsupport.report_missing_toolkit(ImportError("DLL load failed"))
     message = capsys.readouterr().err
     assert "DLL load failed" in message and "install-windows.ps1" in message and winsupport.GTK_DIR_ENV in message
+    assert message_boxes == [message.rstrip("\n")]
 
 
-def test_the_missing_toolkit_is_not_reported_off_windows(capsys):
+def test_the_missing_toolkit_is_not_reported_off_windows(off_windows, message_boxes, capsys):
     winsupport.report_missing_toolkit(ImportError("x"))
-    assert capsys.readouterr().err == ""
+    assert capsys.readouterr().err == "" and message_boxes == []
 
 
-def test_no_icon_is_applied_off_windows(monkeypatch):
+@pytest.fixture
+def user32(monkeypatch):
+    """A stand-in for ``ctypes.windll.user32`` that records the message boxes that are asked for."""
+    asked = []
+    fake = types.SimpleNamespace(MessageBoxW=lambda *arguments: asked.append(arguments))
+    monkeypatch.setattr(ctypes, "windll", types.SimpleNamespace(user32=fake), raising=False)
+    return asked
+
+
+def test_the_message_box_is_an_error_box_titled_with_the_program_name(monkeypatch, user32):
+    monkeypatch.delenv(winsupport.NO_DIALOGS_ENV, raising=False)
+    winsupport.show_error_box("text")
+    assert user32 == [(None, "text", "Multazem", 0x10)]
+
+
+def test_a_message_box_is_not_opened_when_the_environment_says_nobody_can_click_it(monkeypatch, user32):
+    monkeypatch.setenv(winsupport.NO_DIALOGS_ENV, "1")
+    winsupport.show_error_box("text")
+    assert user32 == []
+
+
+def test_no_icon_is_applied_off_windows(off_windows, monkeypatch):
     monkeypatch.setattr(winsupport, "windows_icon_file", lambda: pytest.fail("must not look for the icon"))
     winsupport.apply_icon_to_own_windows()

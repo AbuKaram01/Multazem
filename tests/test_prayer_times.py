@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""Prayer-time calculation: reference values, ordering, methods, high latitudes and error handling."""
 
 import time
 from datetime import date, datetime, timedelta
@@ -16,10 +17,13 @@ from multazem.core.schedule import PrayerSchedule
 from multazem.core.timeutil import local_now, wall_to_timestamp
 from multazem.i18n import LocalizedError
 
+from platform_support import needs_tzset
+
 CAIRO = (30.0444, 31.2357, "Africa/Cairo")
 
 
 def hhmm(dt):
+    """Formats a time as ``HH:MM``."""
     return dt.strftime("%H:%M")
 
 
@@ -201,6 +205,7 @@ def test_wall_to_timestamp_is_true_elapsed_time_across_fall_back():
     assert b - a == 4 * 3600
 
 
+@needs_tzset
 def test_local_now_follows_the_location(monkeypatch):
     monkeypatch.setenv("TZ", "Pacific/Pago_Pago")
     time.tzset()

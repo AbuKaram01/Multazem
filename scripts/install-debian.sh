@@ -10,11 +10,15 @@ set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_ID="com.github.multazem"
+# The oldest versions the application supports; they mirror pyproject.toml and the packages.
 REQUIRED_PYTHON="3.11"
 REQUIRED_ADW="1.5"
 
+# Prints $1 as a progress message.
 info() { printf '\033[1;34m==>\033[0m %s\n' "$1"; }
+# Prints $1 as a success message.
 ok() { printf '\033[1;32m\xE2\x9C\x93\033[0m %s\n' "$1"; }
+# Prints $1 to stderr and aborts the script with status 1.
 fail() {
     printf '\033[1;31m\xE2\x9C\x97 %s\033[0m\n' "$1" >&2
     exit 1
@@ -33,6 +37,8 @@ desktop_quote() {
 }
 
 # Prints the desktop entry template $1 with its Exec placeholder replaced by the program $2.
+# Returns 1 when placeholder text is still left after the replacement, so an entry whose
+# launcher was never filled in is not installed.
 render_desktop_entry() {
     local template exec_value rendered
     template="$(cat "$1")"
@@ -44,6 +50,8 @@ render_desktop_entry() {
     printf '%s\n' "$rendered"
 }
 
+# Stops early, before anything is installed, when the checkout path, the distribution or the
+# user cannot work with this installer.
 check_environment() {
     case "$PROJECT_ROOT" in
         *%*) fail "This checkout's path contains a '%' character, which GNOME cannot represent in an application launcher. Move the project to a path without it and run this again." ;;
@@ -58,6 +66,7 @@ check_environment() {
     fi
 }
 
+# Installs the distribution packages the application needs through apt (asks for sudo).
 install_system_packages() {
     info "Installing system packages (GTK4, libadwaita, Python bindings, notify-send)..."
     sudo apt update -qq
@@ -65,6 +74,7 @@ install_system_packages() {
     ok "System packages installed."
 }
 
+# Stops unless the installed libadwaita is at least $REQUIRED_ADW.
 check_libadwaita_version() {
     local version
     version="$(dpkg-query -W -f='${Version}' gir1.2-adw-1 2>/dev/null || true)"
@@ -74,6 +84,7 @@ check_libadwaita_version() {
     ok "libadwaita $version OK."
 }
 
+# Stops unless the system Python is at least $REQUIRED_PYTHON.
 check_python_version() {
     local version
     version="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
@@ -83,6 +94,8 @@ check_python_version() {
     ok "Python $version OK."
 }
 
+# Installs the application in editable mode into .venv of the project folder. The virtual
+# environment sees the system packages because PyGObject comes from apt, not from pip.
 install_python_package() {
     if [ ! -d .venv ]; then
         info "Creating virtual environment (.venv)..."
@@ -97,6 +110,8 @@ install_python_package() {
     ok "Python dependencies installed."
 }
 
+# Installs the desktop entry and the icon into the user's data directory, so the application
+# shows up in the menu. An entry that cannot be rendered is removed again instead of being kept.
 install_launcher_and_icon() {
     local data_dir="$HOME/.local/share"
     local icon_dir="$data_dir/icons/hicolor/scalable/apps"
@@ -114,6 +129,7 @@ install_launcher_and_icon() {
     ok "Desktop launcher and app icon installed."
 }
 
+# Tells the user how to start the application.
 print_usage() {
     echo
     ok "multazem is installed."
@@ -130,6 +146,7 @@ print_usage() {
     echo "  button in the app's header bar (it sets up a systemd --user service)."
 }
 
+# Runs every installation step in order; the project folder is the working directory.
 main() {
     cd "$PROJECT_ROOT"
     check_environment

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
 # SPDX-License-Identifier: MIT
 
+"""IP-based location detection: validation of the service response and the worker-thread flow."""
 
 import io
 import json
@@ -58,6 +59,8 @@ def test_rejection_reasons_are_localizable():
 
 
 class Response(io.BytesIO):
+    """A fake HTTP response: a byte stream that also works as a context manager."""
+
     def __enter__(self):
         return self
 
@@ -66,6 +69,7 @@ class Response(io.BytesIO):
 
 
 def run_fetch(monkeypatch, urlopen):
+    """Runs one lookup synchronously with ``urlopen`` replaced; returns ``{"ok": args}`` or ``{"err": message}``."""
     got = {}
     monkeypatch.setattr(loc.urllib.request, "urlopen", urlopen)
     monkeypatch.setattr(loc.GLib, "idle_add", lambda fn, *args: fn(*args))
@@ -92,7 +96,7 @@ def test_network_failure_message_follows_the_language(monkeypatch):
     set_language("ar")
 
     def boom(*_args, **_kwargs):
-        raise TimeoutError()
+        raise TimeoutError
 
     assert "الإنترنت" in run_fetch(monkeypatch, boom)["err"]
 
