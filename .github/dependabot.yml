@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 AbuKaram01 <abukaram01@proton.me>
+# SPDX-License-Identifier: MIT
+
+# Keeps the GitHub Actions used by workflows/ci.yml current. Once a week Dependabot opens one pull request with every
+# newer version it finds; the CI run of that pull request shows whether anything broke before it is merged.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      github-actions:
+        patterns:
+          - "*"
