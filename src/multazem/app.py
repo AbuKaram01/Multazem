@@ -41,6 +41,7 @@ from .ui.language import apply_ui_language  # noqa: E402
 from .ui.window import MultazemWindow  # noqa: E402
 
 APP_ID = "com.github.multazem"
+WEBSITE = "https://github.com/AbuKaram01/Multazem"
 ICONS_DIR = Path(__file__).resolve().parent / "icons"
 
 
@@ -124,17 +125,20 @@ class MultazemApp(Adw.Application):
             Gtk.IconTheme.get_for_display(display).add_search_path(str(ICONS_DIR))
 
     def _show_about(self, *_args: object) -> None:
-        """Shows the About window; the signature accepts and ignores the signal arguments."""
-        about = Adw.AboutWindow(
-            transient_for=self._window,
+        """Shows the About dialog; the signature accepts and ignores the signal arguments."""
+        about = Adw.AboutDialog(
             application_name=tr("app.name"),
             application_icon=APP_ID,
             version=__version__,
             developer_name="AbuKaram01",
-            license_type=Gtk.License.MIT_X11,
+            developers=["AbuKaram01"],
+            copyright="© 2026 AbuKaram01",
             comments=tr("app.description"),
+            website=WEBSITE,
+            issue_url=f"{WEBSITE}/issues",
+            license_type=Gtk.License.MIT_X11,
         )
-        about.present()
+        about.present(self._window)
 
     def do_shutdown(self) -> None:
         """Stops the scheduler before the application shuts down."""

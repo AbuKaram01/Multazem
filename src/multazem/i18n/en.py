@@ -47,8 +47,51 @@ MESSAGES: dict[str, str] = {
     "hijri.format": "{day} {month} {year} AH",
     # --- Main menu -------------------------------------------------------------------
     "menu.preferences": "Preferences",
+    "menu.welcome": "Welcome Guide",
     "menu.about": "About",
     "menu.quit": "Quit",
+    # --- Welcome guide -------------------------------------------------------------
+    "welcome.title": "Welcome",
+    "welcome.heading": "Welcome to Multazem",
+    "welcome.tagline": "Prayer time reminders for your desktop, worked out on your own computer.",
+    "welcome.times.title": "Today's prayer times",
+    "welcome.times.text": (
+        "Fajr to Isha with a live countdown to the next prayer, and today's Gregorian and Hijri dates."
+    ),
+    "welcome.reminders.title": "Reminders",
+    "welcome.reminders.text": (
+        "A notification at each prayer and at sunrise, plus an optional early reminder. The bell on "
+        "a row mutes that prayer."
+    ),
+    "welcome.offline.title": "Private and offline",
+    "welcome.offline.text": (
+        "Times are worked out on your computer. The internet is only used to detect your location "
+        "or sync the Hijri date, both optional."
+    ),
+    "welcome.setup.heading": "Set it up",
+    "welcome.setup.description": "Three things worth a minute, then Multazem looks after the rest.",
+    "welcome.setup.location.title": "Choose your location",
+    "welcome.setup.location.text": (
+        "Pick your city in Preferences, add your own region, or press the location button in the "
+        "header bar to detect it from your IP address."
+    ),
+    "welcome.setup.method.title": "Pick the calculation method",
+    "welcome.setup.method.text": (
+        "Preferences offers seven methods and your Asr school, with a comparison table to find the "
+        "method that matches the app you are used to."
+    ),
+    "welcome.setup.service.title": "Keep the reminders coming",
+    "welcome.setup.service.text": (
+        "Press Autostart in the header bar to install a small background service, so notifications "
+        "keep arriving after you close the window."
+    ),
+    "welcome.finish.heading": "You're all set",
+    "welcome.finish.description": (
+        "Your prayer times are on the main screen. You can open this guide again from the main menu: Welcome Guide."
+    ),
+    "welcome.back": "Back",
+    "welcome.next": "Next",
+    "welcome.start": "Get Started",
     # --- Main window -----------------------------------------------------------------
     "window.menu.tooltip": "Main menu",
     "window.detect_location.tooltip": "Detect location automatically (requires internet)",

@@ -29,6 +29,7 @@ from .prayer_list import PrayerTimesList
 from .preferences import PreferencesDialog
 from .service_button import ServiceToggleButton
 from .toasts import make_toast
+from .welcome import WelcomeDialog
 
 logger = get_logger("window")
 
@@ -76,6 +77,7 @@ class MultazemWindow(Adw.ApplicationWindow):
         self._last_day_checked: date | None = None
         self._settings_refresh_source: int | None = None
         self._pref_dialog: PreferencesDialog | None = None
+        self._welcome_dialog: WelcomeDialog | None = None
         self._close_notice_shown = False
         self._hijri_sync = HijriSync()
 
@@ -85,6 +87,9 @@ class MultazemWindow(Adw.ApplicationWindow):
         preferences_action = Gio.SimpleAction.new("preferences", None)
         preferences_action.connect("activate", self._open_preferences)
         self.add_action(preferences_action)
+        welcome_action = Gio.SimpleAction.new("welcome", None)
+        welcome_action.connect("activate", self._open_welcome)
+        self.add_action(welcome_action)
 
         self._build_ui()
         self._refresh_times()
@@ -148,12 +153,13 @@ class MultazemWindow(Adw.ApplicationWindow):
 
     @staticmethod
     def _build_menu() -> Gio.Menu:
-        """Builds the main menu: preferences, about and quit."""
+        """Builds the main menu: preferences, the welcome guide, about and quit."""
         menu = Gio.Menu()
         preferences_section = Gio.Menu()
         preferences_section.append(tr("menu.preferences"), "win.preferences")
         menu.append_section(None, preferences_section)
         app_section = Gio.Menu()
+        app_section.append(tr("menu.welcome"), "win.welcome")
         app_section.append(tr("menu.about"), "app.about")
         app_section.append(tr("menu.quit"), "app.quit")
         menu.append_section(None, app_section)
@@ -315,6 +321,19 @@ class MultazemWindow(Adw.ApplicationWindow):
         self._pref_dialog = PreferencesDialog(self._settings, self._catalog, self)
         self._pref_dialog.connect("close-request", self._on_preferences_closed)
         self._pref_dialog.present()
+
+    def _open_welcome(self, *_args: object) -> None:
+        """Opens the welcome guide on top of the window; one that is already open stays."""
+        if self._welcome_dialog is not None:
+            return
+        dialog = WelcomeDialog(self.get_application().props.application_id)
+        dialog.connect("closed", self._on_welcome_closed)
+        self._welcome_dialog = dialog
+        dialog.present(self)
+
+    def _on_welcome_closed(self, _dialog: Adw.Dialog) -> None:
+        """Forgets the guide once it is closed, so the menu can open a fresh one."""
+        self._welcome_dialog = None
 
     def _on_preferences_closed(self, _dialog: Gtk.Window) -> bool:
         """Recalculates the timetable after the dialog closes; a failure is logged and never blocks closing."""
